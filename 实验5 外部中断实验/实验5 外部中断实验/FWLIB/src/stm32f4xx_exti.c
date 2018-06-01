@@ -260,13 +260,13 @@ void EXTI_ClearFlag(uint32_t EXTI_Line)
   *          This parameter can be EXTI_Linex where x can be(0..22)
   * @retval The new state of EXTI_Line (SET or RESET).
   */
-ITStatus EXTI_GetITStatus(uint32_t EXTI_Line)
-{
+ITStatus EXTI_GetITStatus(uint32_t EXTI_Line)//判断某个中断线上的中断是否发生（标志位是否置位）
+{                                            //
   FlagStatus bitstatus = RESET;
   /* Check the parameters */
   assert_param(IS_GET_EXTI_LINE(EXTI_Line));
   
-  if ((EXTI->PR & EXTI_Line) != (uint32_t)RESET)
+  if ((EXTI->PR & EXTI_Line) != (uint32_t)RESET)//如果中断发生了，把bitstatus置1
   {
     bitstatus = SET;
   }

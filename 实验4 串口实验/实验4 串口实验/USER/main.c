@@ -24,20 +24,20 @@ int main(void)
 	delay_init(168);		//延时初始化 
 	uart_init(115200);	//串口初始化波特率为115200
 	LED_Init();		  		//初始化与LED连接的硬件接口  
-	while(1)
+	while(1)//一直在循环，循环来判断STA的最高位
 	{
-		if(USART_RX_STA&0x8000)
+		if(USART_RX_STA&0x8000)//若为1，说明接收完成了
 		{					   
-			len=USART_RX_STA&0x3fff;//得到此次接收到的数据长度
-			printf("\r\n您发送的消息为:\r\n");
+			len=USART_RX_STA&0x3fff;//完成后，把STA的BIT13-0取出来，保存在len里面，得到此次接收到的数据长度
+			printf("\r\n您发送的消息为:\r\n");//把这段字符串打印在串口1
 			for(t=0;t<len;t++)
 			{
-				USART_SendData(USART1, USART_RX_BUF[t]);         //向串口1发送数据
+				USART_SendData(USART1, USART_RX_BUF[t]);//把保存在BUFFFER的数据一个一个发送到串口
 				while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//等待发送结束
 			}
 			printf("\r\n\r\n");//插入换行，，在“您发送的消息为”后面换行
-			USART_RX_STA=0;
-		}else
+			USART_RX_STA=0;//发送完成后，再把STA清0，方便下一次接收
+		}else//没完成不停打印
 		{
 			times++;
 			if(times%5000==0)

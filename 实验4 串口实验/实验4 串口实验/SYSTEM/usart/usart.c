@@ -51,7 +51,7 @@ _sys_exit(int x)
 //重定义fputc函数 
 int fputc(int ch, FILE *f)
 { 	
-	while((USART1->SR&0X40)==0);//循环发送,直到发送完毕   
+	while((USART1->SR&0X40)==0);//发送数据到串口1的DR寄存器，串口号可改   循环发送,直到发送完毕   
 	USART1->DR = (u8) ch;      
 	return ch;
 }
@@ -84,7 +84,7 @@ void uart_init(u32 bound){
 	
 	//USART1端口配置
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9 | GPIO_Pin_10; //GPIOA9与GPIOA10
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;//复用功能
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;//GPIO端口模式设置为复用功能
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;	//速度50MHz
 	GPIO_InitStructure.GPIO_OType = GPIO_OType_PP; //推挽复用输出
 	GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP; //上拉
@@ -121,28 +121,33 @@ void uart_init(u32 bound){
 void USART1_IRQHandler(void)                	//串口1中断服务程序
 {
 	u8 Res;
-#if SYSTEM_SUPPORT_OS 		//如果SYSTEM_SUPPORT_OS为真，则需要支持OS.
+#if SYSTEM_SUPPORT_OS 		//如果SYSTEM_SUPPORT_OS为真，则需要支持OS.OS是operating system
 	OSIntEnter();    
 #endif
-	if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET)  //接收中断(接收到的数据必须是0x0d 0x0a结尾)
+	if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET)  //判断是不是接收中断(接收到的数据必须是0x0d 0x0a结尾)
+	//字符是一个一个接收的，如果发送了100字符，要中断100次，，，，
 	{
-		Res =USART_ReceiveData(USART1);//(USART1->DR);	//读取接收到的数据
-		
-		if((USART_RX_STA&0x8000)==0)//接收未完成
+		Res =USART_ReceiveData(USART1);//(USART1->DR);	//如果是接收中断，则调用接收函数，读取接收到的数据
+		                               //Res中是本次接收到的数据
+		if((USART_RX_STA&0x8000)==0)//若接收完成，但外部没有给标志位清0.则不论本次接收到什么都视为无效
+			//接收未完成,第16位用来标记是否接收完成
 		{
-			if(USART_RX_STA&0x4000)//接收到了0x0d
+			if(USART_RX_STA&0x4000)//接收到了0x0d，第15位用来标记是否接收到0xOd
 			{
-				if(Res!=0x0a)USART_RX_STA=0;//接收错误,重新开始
-				else USART_RX_STA|=0x8000;	//接收完成了 
+				if(Res!=0x0a)USART_RX_STA=0;//上次已经收到0x0d了,这次却没有收到0x0a,这个数据不符合协议
+				//接收错误,重新开始
+				else USART_RX_STA|=0x8000;	//接收完成后把最高位标记为1
 			}
 			else //还没收到0X0D
 			{	
-				if(Res==0x0d)USART_RX_STA|=0x4000;
-				else
+				if(Res==0x0d)USART_RX_STA|=0x4000;//上次没有收到0xod,则判断本次有没有收到0x0d
+				else//如果这次还没收到0x0d
 				{
-					USART_RX_BUF[USART_RX_STA&0X3FFF]=Res ;
-					USART_RX_STA++;
-					if(USART_RX_STA>(USART_REC_LEN-1))USART_RX_STA=0;//接收数据错误,重新开始接收	  
+					USART_RX_BUF[USART_RX_STA&0X3FFF]=Res ;//说明收到的是有效数据，把数据保存在BUFFER里
+					USART_RX_STA++;//接收到的数据个数+1，即BIT13-0的值加一，又多了一个有效数据
+					if(USART_RX_STA>(USART_REC_LEN-1))USART_RX_STA=0;//接收数据错误,重新开始接收	
+          //由于没有收到OX0D和0X0A,所以此处的USART_RX_STA就是BIT13-0的值，就是收到的有效数据的个数	
+          //若，STA>USART_REC_LEN-1,说明超长了，所以，数据无效了，再次把STA置0					
 				}		 
 			}
 		}   		 

@@ -105,6 +105,7 @@ void uart_init(u32 bound){
 	
 #if EN_USART1_RX	
 	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启相关中断
+	//开了中断应该就打开了中断服务函数，然后等if吧
 
 	//Usart1 NVIC 配置
   NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;//串口1中断通道
